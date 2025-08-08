@@ -32,11 +32,11 @@ jobs:
         python -m pip install build twine
     
     - name: Build package
-      working-directory: src/muon_fsdp2
+      working-directory: src/muon
       run: python -m build
     
     - name: Check package
-      working-directory: src/muon_fsdp2
+      working-directory: src/muon
       run: |
         python -m twine check dist/*
         ls -la dist/
@@ -45,7 +45,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: python-package-distributions
-        path: src/muon_fsdp2/dist/
+        path: src/muon/dist/
 
   publish-to-pypi:
     name: Publish to PyPI
