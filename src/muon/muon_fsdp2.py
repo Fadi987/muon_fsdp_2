@@ -75,14 +75,21 @@ def apply_scaling(grad, rms_scale=False ):
         grad *= max(1, grad.size(-2) / grad.size(-1))**0.5
         return grad
 
+def muon_update(grad, momentum, beta=0.95, ns_steps=5, nesterov=True, rms_scale=False):
+    momentum.lerp_(grad, 1 - beta)
+    update = grad.lerp_(momentum, beta) if nesterov else momentum
+    if update.ndim == 4: # for the case of conv filters
+        update = update.view(len(update), -1)
+    update = zeropower_via_newtonschulz5(update, steps=ns_steps)
+    update = apply_scaling(update, rms_scale)
+    return update
+
 def adam_update(grad, buf1, buf2, step, betas, eps):
     buf1.lerp_(grad, 1 - betas[0])
     buf2.lerp_(grad.square(), 1 - betas[1])
     buf1c = buf1 / (1 - betas[0]**step)
     buf2c = buf2 / (1 - betas[1]**step)
     return buf1c / (buf2c.sqrt() + eps)
-
-
 
 class Work(Protocol):
     
@@ -196,7 +203,7 @@ class SingelDeviceWork:
         self.group = group
         
     def start(self):
-        update = muon_update(self.param.grad, self.state["momentum_buffer"], self.group["momentum"], self.group["nesterov"], self.group["ns_steps"], self.group["rms_scale"])
+        update = muon_update(self.param.grad, self.state["momentum_buffer"], self.group["momentum"], self.group["ns_steps"], self.group["nesterov"], self.group["rms_scale"])
         self.param.mul_(1 - self.group["lr"] * self.group["weight_decay"])
         self.param.add_(update.reshape(self.param.shape), alpha=-self.group["lr"])
         
